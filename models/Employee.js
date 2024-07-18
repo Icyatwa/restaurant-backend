@@ -7,7 +7,6 @@ const employeeSchema = new Schema({
   employeeId: { type: String, required: true, unique: true },
   company: { type: Schema.Types.ObjectId, ref: 'Company', default: null },
   isIndividual: { type: Boolean, default: false },
-  companyName: { type: String },
   foodTaken: { type: String, default: '' }
 });
 

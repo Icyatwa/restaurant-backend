@@ -1,147 +1,142 @@
+// Home.js
+import React from 'react';
+import HomeClass from '../components/HomeClass';
+import AddButton from '../components/addButton';
 
-// Company.js
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+const Home = () => {
 
-const companySchema = new Schema({
-  name: { type: String, required: true },
-  employees: [{ type: Schema.Types.ObjectId, ref: 'Employee' }]
-});
+  return (
+    <div style={{background:'#FFFCF8'}}>
+      <AddButton/>
+      <section id='section1'>
+        <HomeClass/>
+      </section>
+    </div>
+  );
+};
 
-module.exports = mongoose.model('Company', companySchema);
+export default Home;
 
-// Employee.js
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
 
-const employeeSchema = new Schema({
-  name: { type: String, required: true },
-  employeeId: { type: String, required: true, unique: true },
-  company: { type: Schema.Types.ObjectId, ref: 'Company', default: null },
-  isIndividual: { type: Boolean, default: false },
-  companyName: { type: String },
-  foodTaken: { type: String, default: '' }
-});
+// CompanyList.js
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import '../assets/style/companyList.css';
+import AddButton from '../components/addButton';
+import pic1 from '../assets/img/Chef-pana.png';
+import pic2 from '../assets/img/Cooking-bro.png';
+import pic3 from '../assets/img/Coffee shop-bro.png';
+import pic4 from '../assets/img/fast food-pana.png';
+import pic5 from '../assets/img/fruit salad-rafiki.png';
+import pic6 from '../assets/img/Lunch time-bro.png';
+import pic7 from '../assets/img/Street Food-pana.png';
+import { useNavigate } from 'react-router-dom';
 
-module.exports = mongoose.model('Employee', employeeSchema);
+const CompanyList = ({ onSelectCompany, onAddNewCompany }) => {
+  const [companies, setCompanies] = useState([]);
+  const [newCompanyName, setNewCompanyName] = useState('');
+  const [company, setCompany] = useState(true);
+  const [person, setPerson] = useState(false);
+  const navigate = useNavigate();
 
-// companyRoutes
-const express = require('express');
-const router = express.Router();
-const Company = require('../models/Company');
-const Employee = require('../models/Employee');
+  const handleCompaniesClick = () => {
+    setCompany(true);
+    setPerson(false);
+  };
 
-// Create a company
-router.post('/create', async (req, res) => {
+  const handlePersonClick = () => {
+    setCompany(false);
+    setPerson(true);
+  };
+
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/companies');
+        setCompanies(response.data);
+      } catch (error) {
+        console.error('Error fetching companies:', error.message);
+      }
+    };
+
+    fetchCompanies();
+  }, []);
+
+  const handleAddCompany = async () => {
     try {
-        const { name } = req.body;
-        const newCompany = new Company({ name });
-        await newCompany.save();
-        res.status(201).json(newCompany);
+      const response = await axios.post('http://localhost:5000/api/companies/create', { name: newCompanyName });
+      setCompanies([...companies, response.data]);
+      setNewCompanyName('');
+      if (onAddNewCompany) {
+        onAddNewCompany(response.data._id);
+      }
     } catch (error) {
-        res.status(500).json({ error: error.message });
+      console.error('Error adding company:', error.message);
     }
-});
+  };
 
-// Add an employee to a company
-router.post('/add-employee', async (req, res) => {
-    try {
-        const { name, employeeId, companyName, companyId, isIndividual } = req.body;
-        let company = null;
-
-        if (companyId) {
-            company = await Company.findById(companyId);
-            if (!company) {
-                return res.status(404).json({ error: 'Company not found' });
-            }
-        }
-
-        const newEmployee = new Employee({
-            name,
-            employeeId,
-            companyName,
-            company: company ? company._id : null,
-            isIndividual
-        });
-
-        await newEmployee.save();
-
-        if (company) {
-            company.employees.push(newEmployee._id);
-            await company.save();
-        }
-
-        res.status(201).json(newEmployee);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+  const handleSelectCompany = (companyId) => {
+    if (onSelectCompany) {
+      onSelectCompany(companyId);
+    } else {
+      navigate(`/company/${companyId}/employees`);
     }
-});
-  
-  // Verify an employee
-router.post('/verify-employee', async (req, res) => {
-    try {
-        const { employeeId } = req.body;
-        const employee = await Employee.findOne({ employeeId }).populate('company');
+  };
 
-        if (!employee) {
-            return res.status(404).json({ error: 'Employee not found' });
-        }
+  return (
+    <div className='list-container'>
+      <div className='bookingBackgroud'>
+        <img src={pic1} alt='' />
+        <img src={pic2} alt='' />
+        <img src={pic3} alt='' />
+        <img src={pic4} alt='' />
+        <img src={pic5} alt='' />
+        <img src={pic6} alt='' />
+        <img src={pic7} alt='' />
+      </div>
+      <AddButton />
+      <div className='ctn'>
+        <div className='buttons'>
+          <button
+            className={`btn ${company ? "active" : ""}`}
+            onClick={handleCompaniesClick}
+          >
+            Companies
+          </button>
+          <button
+            className={`btn ${person ? "active" : ""}`}
+            onClick={handlePersonClick}
+          >
+            Individual person
+          </button>
+        </div>
+        {company && (
+          <ul className='container'>
+            {companies.map((company) => (
+              <div className='list' onClick={() => handleSelectCompany(company._id)} key={company._id}>
+                <img src='https://img.freepik.com/premium-vector/file-folder-icon-flat-style-documents-archive-vector-illustration-white-isolated-background-storage-business-concept_157943-627.jpg?uid=R102997587&ga=GA1.2.2142793496.1716934876&semt=sph' alt='' />
+                <li style={{ cursor: 'pointer' }}>
+                  {company.name}
+                </li>
+              </div>
+            ))}
+          </ul>
+        )}
 
-        res.status(200).json(employee);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-  
-router.get('/', async (req, res) => {
-    try {
-        const companies = await Company.find();
-        res.status(200).json(companies);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+        {person && (
+          <div className='container'>
+            <h1>Cyusa</h1>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
-router.get('/:companyId/employees', async (req, res) => {
-    try {
-        const { companyId } = req.params;
-        const employees = await Employee.find({ company: companyId });
-        res.status(200).json(employees);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+export default CompanyList;
 
-module.exports = router;
 
-// server.js
-const express = require('express');
-const cors = require('cors');
-const connectDB = require('./config/database');
-const http = require('http');
-const socketIo = require('socket.io');
-const companyRoutes = require('./routes/companyRoutes');
-const app = express();
-const PORT = process.env.PORT || 5000;
 
-app.use(cors());
-app.use(express.json());
-
-app.use('/api/companies', companyRoutes);
-
-const server = http.createServer(app);
-const io = socketIo(server);
-
-module.exports.io = io;
-connectDB()
-  .then(() => {
-    server.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
-  })
-  .catch((error) => {
-    console.log(error);
-  });
 
 // CompanyForm.js
 import React, { useState } from 'react';
@@ -177,111 +172,6 @@ const CompanyForm = () => {
 
 export default CompanyForm;
 
-// CompanyEmployees.js
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const CompanyEmployees = ({ companyId }) => {
-  const [employees, setEmployees] = useState([]);
-  const [tickStatus, setTickStatus] = useState({});
-
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        const response = await axios.get(`http://localhost:5000/api/companies/${companyId}/employees`);
-        setEmployees(response.data);
-      } catch (error) {
-        console.error('Error fetching employees:', error.message);
-      }
-    };
-
-    fetchEmployees();
-  }, [companyId]);
-
-  const handleTick = (employeeId) => {
-    setTickStatus((prevStatus) => ({
-      ...prevStatus,
-      [employeeId]: !prevStatus[employeeId]
-    }));
-  };
-
-  return (
-    <div>
-      <h2>Employees of Company {companyId}</h2>
-      <ul>
-        {employees.map((employee) => (
-          <li key={employee._id}>
-            <label>
-              <input
-                type="checkbox"
-                checked={tickStatus[employee._id] || false}
-                onChange={() => handleTick(employee._id)}
-              />
-              {employee.name}
-            </label>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-};
-
-export default CompanyEmployees;
-
-// CompanyList.js
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const CompanyList = ({ onSelectCompany, onAddNewCompany }) => {
-  const [companies, setCompanies] = useState([]);
-  const [newCompanyName, setNewCompanyName] = useState('');
-
-  useEffect(() => {
-    const fetchCompanies = async () => {
-      try {
-        const response = await axios.get('http://localhost:5000/api/companies');
-        setCompanies(response.data);
-      } catch (error) {
-        console.error('Error fetching companies:', error.message);
-      }
-    };
-
-    fetchCompanies();
-  }, []);
-
-  const handleAddCompany = async () => {
-    try {
-      const response = await axios.post('http://localhost:5000/api/companies/create', { name: newCompanyName });
-      setCompanies([...companies, response.data]);
-      setNewCompanyName('');
-      onAddNewCompany(response.data._id);
-    } catch (error) {
-      console.error('Error adding company:', error.message);
-    }
-  };
-
-  return (
-    <div>
-      <h2>Companies</h2>
-      <ul>
-        {companies.map((company) => (
-          <li key={company._id} onClick={() => onSelectCompany(company._id)} style={{ cursor: 'pointer' }}>
-            {company.name}
-          </li>
-        ))}
-      </ul>
-      <input
-        type="text"
-        value={newCompanyName}
-        onChange={(e) => setNewCompanyName(e.target.value)}
-        placeholder="New Company Name"
-      />
-      <button onClick={handleAddCompany}>Add Company</button>
-    </div>
-  );
-};
-
-export default CompanyList;
 
 // AddEmployeeForm.js
 import React, { useState, useEffect } from 'react';
@@ -372,74 +262,156 @@ const AddEmployeeForm = ({ companyId, companies, onAddEmployee }) => {
 
 export default AddEmployeeForm;
 
-// Home.js
+// CompanyEmployees.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import CompanyForm from '../components/CompanyForm';
-import AddEmployeeForm from '../components/AddEmployeeForm';
-import CompanyList from '../components/CompanyList';
-import CompanyEmployees from '../components/CompanyEmployees';
+import { useNavigate } from 'react-router-dom';
 
-const Home = () => {
-  const [selectedCompany, setSelectedCompany] = useState(null);
-  const [companies, setCompanies] = useState([]);
-  const [view, setView] = useState('companies');
+const CompanyEmployees = ({ companyId }) => {
+  const [employees, setEmployees] = useState([]);
+  const [foodInputs, setFoodInputs] = useState({});
+  const [tickStatus, setTickStatus] = useState({});
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchCompanies = async () => {
+    const fetchEmployees = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/companies');
-        setCompanies(response.data);
+        const response = await axios.get(`http://localhost:5000/api/companies/${companyId}/employees`);
+        setEmployees(response.data);
       } catch (error) {
-        console.error('Error fetching companies:', error.message);
+        console.error('Error fetching employees:', error.message);
       }
     };
 
-    fetchCompanies();
-  }, []);
+    fetchEmployees();
+  }, [companyId]);
 
-  const handleCompanySelect = (companyId) => {
-    setSelectedCompany(companyId);
-    setView('employees');
+  const handleTick = (employeeId) => {
+    setTickStatus((prevStatus) => ({
+      ...prevStatus,
+      [employeeId]: !prevStatus[employeeId]
+    }));
   };
 
-  const handleAddNewCompany = (companyId) => {
-    setSelectedCompany(companyId);
-    setView('employees');
+  const handleFoodChange = (employeeId, food) => {
+    setFoodInputs((prevInputs) => ({
+      ...prevInputs,
+      [employeeId]: food
+    }));
   };
 
-  const handleAddEmployee = (employee) => {
-    console.log('Employee added:', employee);
-    // Optionally update the state or perform other actions after adding an employee
+  const handleUpdateFood = async (employeeId) => {
+    try {
+      const foodTaken = foodInputs[employeeId];
+      await axios.post('http://localhost:5000/api/companies/update-food', {
+        employeeId,
+        foodTaken
+      });
+      setFoodInputs((prevInputs) => ({
+        ...prevInputs,
+        [employeeId]: ''
+      }));
+    } catch (error) {
+      console.error('Error updating food taken:', error.message);
+    }
+  };
+
+  const handleSubmit = () => {
+    const submittedEmployees = employees.filter(employee => tickStatus[employee._id]);
+    const data = submittedEmployees.map(employee => ({
+      ...employee,
+      changedMeal: !!foodInputs[employee._id],
+      foodTaken: foodInputs[employee._id] || employee.foodTaken
+    }));
+
+    navigate('/submitted-employees', { state: { data } });
   };
 
   return (
     <div>
-      <h1>Restaurant Management System</h1>
-      {view === 'companies' && (
-        <>
-          <CompanyForm />
-          <CompanyList onSelectCompany={handleCompanySelect} onAddNewCompany={handleAddNewCompany} />
-          <AddEmployeeForm
-            companyId={selectedCompany}
-            companies={companies}
-            onAddEmployee={handleAddEmployee}
-          />
-        </>
-      )}
-      {view === 'employees' && selectedCompany && (
-        <CompanyEmployees companyId={selectedCompany} />
-      )}
+      <h2>Employees of Company {companyId}</h2>
+      <ul>
+        {employees.map((employee) => (
+          <li key={employee._id}>
+            <label>
+              <input
+                type="checkbox"
+                checked={tickStatus[employee._id] || false}
+                onChange={() => handleTick(employee._id)}
+              />
+              {employee.name}
+            </label>
+            {tickStatus[employee._id] && (
+              <div>
+                <button onClick={() => handleFoodChange(employee._id, '')}>
+                  Add Food Taken
+                </button>
+                {foodInputs[employee._id] !== undefined && (
+                  <div>
+                    <input
+                      type="text"
+                      value={foodInputs[employee._id] || ''}
+                      onChange={(e) => handleFoodChange(employee._id, e.target.value)}
+                      placeholder="Food Taken"
+                    />
+                    <button onClick={() => handleUpdateFood(employee._id)}>Update Food</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+      <button onClick={handleSubmit}>Submit Ticked Employees</button>
     </div>
   );
-}; 
+};
 
-export default Home;
+export default CompanyEmployees;
 
 
-i want that if an employee took a plate which is 
-different from what the company negotiated with the restaurant that they 
-should take, an admin can click on that employee and just type the food he took that time, 
-don't add the functions for negotiating what to eat no it's just an input
-where an admin will type the food that employee took that time, about negotiating what to eat the 
-companies and the restaurant will not use our system they'll talk face to face
+// index.js
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { RouterProvider, createBrowserRouter } from 'react-router-dom';
+import RootLayout from './layouts/root-layout';
+import DashboardLayout from './layouts/dashboard-layout';
+import SignInPage from './routes/sign-in';
+import SignUpPage from './routes/sign-up';
+import Home from './pages/Home';
+import AddEmployeeForm from './components/AddEmployeeForm';
+import CompanyForm from './components/CompanyForm';
+import CompanyList from './components/CompanyList';
+import SubmittedEmployees from './components/SubmittedEmployees';
+import AddBetweenForms from './components/AddBetweenForms.js';
+import CompanyEmployees from './components/CompanyEmployees';
+
+const router = createBrowserRouter([
+  {
+    element: <RootLayout />,
+    children: [
+      { path: "/", element: <Home /> },
+      { path: "/sign-in", element: <SignInPage /> },
+      { path: "/sign-up", element: <SignUpPage /> }, 
+      {
+        element: <DashboardLayout />,
+        children: [
+          { path: "/add-employee", element: <AddEmployeeForm /> },
+          { path: "/company-form", element: <CompanyForm /> },
+          { path: "/company-list", element: <CompanyList /> },
+          { path: "/submitted-employees", element: <SubmittedEmployees /> },
+          { path: "/addBetween", element: <AddBetweenForms /> },
+          { path: "/company/:companyId/employees", element: <CompanyEmployees /> }
+        ]
+      }
+    ]
+  }
+]);
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <RouterProvider router={router} />
+  </React.StrictMode>
+);
+
+

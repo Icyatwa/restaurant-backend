@@ -20,7 +20,7 @@ router.post('/create', async (req, res) => {
 // Add an employee to a company
 router.post('/add-employee', async (req, res) => {
     try {
-        const { name, employeeId, companyName, companyId, isIndividual } = req.body;
+        const { name, employeeId, companyId, isIndividual } = req.body;
         let company = null;
 
         if (companyId) {
@@ -33,7 +33,6 @@ router.post('/add-employee', async (req, res) => {
         const newEmployee = new Employee({
             name,
             employeeId,
-            companyName,
             company: company ? company._id : null,
             isIndividual
         });
