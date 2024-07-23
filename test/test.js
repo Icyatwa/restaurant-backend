@@ -1,21 +1,195 @@
-// Home.js
-import React from 'react';
-import HomeClass from '../components/HomeClass';
-import AddButton from '../components/addButton';
 
-const Home = () => {
+// Company.js
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-  return (
-    <div style={{background:'#FFFCF8'}}>
-      <AddButton/>
-      <section id='section1'>
-        <HomeClass/>
-      </section>
-    </div>
-  );
-};
+const companySchema = new Schema({
+  name: { type: String, required: true },
+  employees: [{ type: Schema.Types.ObjectId, ref: 'Employee' }]
+});
 
-export default Home;
+module.exports = mongoose.model('Company', companySchema);
+
+// Employee.js
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+
+const employeeSchema = new Schema({
+  name: { type: String, required: true },
+  employeeId: { type: String, required: true, unique: true },
+  company: { type: Schema.Types.ObjectId, ref: 'Company', default: null },
+  isIndividual: { type: Boolean, default: false },
+  foodTaken: { type: String, default: '' }
+});
+
+module.exports = mongoose.model('Employee', employeeSchema);
+
+
+// companyRoutes
+const express = require('express');
+const router = express.Router();
+const Company = require('../models/Company');
+const Employee = require('../models/Employee'); 
+
+// Create a company
+router.post('/create', async (req, res) => {
+    try {
+        const { name } = req.body;
+        const newCompany = new Company({ name });
+        await newCompany.save();
+        res.status(201).json(newCompany);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Add an employee to a company
+router.post('/add-employee', async (req, res) => {
+    try {
+        const { name, employeeId, companyId, isIndividual } = req.body;
+        let company = null;
+
+        if (companyId) {
+            company = await Company.findById(companyId);
+            if (!company) {
+                return res.status(404).json({ error: 'Company not found' });
+            }
+        }
+
+        const newEmployee = new Employee({
+            name,
+            employeeId,
+            company: company ? company._id : null,
+            isIndividual
+        });
+
+        await newEmployee.save();
+
+        if (company) {
+            company.employees.push(newEmployee._id);
+            await company.save();
+        }
+
+        res.status(201).json(newEmployee);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+  
+// Verify an employee
+router.post('/verify-employee', async (req, res) => {
+    try {
+        const { employeeId } = req.body;
+        const employee = await Employee.findOne({ employeeId }).populate('company');
+
+        if (!employee) {
+            return res.status(404).json({ error: 'Employee not found' });
+        }
+
+        res.status(200).json(employee);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+  
+router.get('/', async (req, res) => {
+    try {
+        const companies = await Company.find();
+        res.status(200).json(companies);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/:companyId/employees', async (req, res) => {
+    try {
+        const { companyId } = req.params;
+        const employees = await Employee.find({ company: companyId });
+        res.status(200).json(employees);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/update-food', async (req, res) => {
+    try {
+        const { employeeId, foodTaken } = req.body;
+        const employee = await Employee.findOne({ employeeId });
+
+        if (!employee) {
+            return res.status(404).json({ error: 'Employee not found' });
+        }
+
+        employee.foodTaken = foodTaken;
+        await employee.save();
+
+        res.status(200).json(employee);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+module.exports = router;
+
+// employeeRoutes.js
+const express = require('express');
+const router = express.Router();
+const Employee = require('../models/Employee');
+
+// Update food taken by an employee
+router.put('/:employeeId/update-food', async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const { foodTaken } = req.body;
+
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    employee.foodTaken = foodTaken;
+    await employee.save();
+
+    res.status(200).json(employee);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = router;
+
+
+// Individual.js
+
+
+// server.js
+const express = require('express');
+const cors = require('cors');
+const connectDB = require('./config/database');
+const http = require('http');
+const socketIo = require('socket.io');
+const companyRoutes = require('./routes/companyRoutes');
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(express.json());
+
+app.use('/api/companies', companyRoutes);
+
+const server = http.createServer(app);
+const io = socketIo(server);
+
+module.exports.io = io;
+connectDB()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.log(error);
+  });
+
 
 
 // CompanyList.js
@@ -34,7 +208,6 @@ import { useNavigate } from 'react-router-dom';
 
 const CompanyList = ({ onSelectCompany, onAddNewCompany }) => {
   const [companies, setCompanies] = useState([]);
-  const [newCompanyName, setNewCompanyName] = useState('');
   const [company, setCompany] = useState(true);
   const [person, setPerson] = useState(false);
   const navigate = useNavigate();
@@ -62,19 +235,6 @@ const CompanyList = ({ onSelectCompany, onAddNewCompany }) => {
     fetchCompanies();
   }, []);
 
-  const handleAddCompany = async () => {
-    try {
-      const response = await axios.post('http://localhost:5000/api/companies/create', { name: newCompanyName });
-      setCompanies([...companies, response.data]);
-      setNewCompanyName('');
-      if (onAddNewCompany) {
-        onAddNewCompany(response.data._id);
-      }
-    } catch (error) {
-      console.error('Error adding company:', error.message);
-    }
-  };
-
   const handleSelectCompany = (companyId) => {
     if (onSelectCompany) {
       onSelectCompany(companyId);
@@ -94,7 +254,6 @@ const CompanyList = ({ onSelectCompany, onAddNewCompany }) => {
         <img src={pic6} alt='' />
         <img src={pic7} alt='' />
       </div>
-      <AddButton />
       <div className='ctn'>
         <div className='buttons'>
           <button
@@ -124,9 +283,9 @@ const CompanyList = ({ onSelectCompany, onAddNewCompany }) => {
         )}
 
         {person && (
-          <div className='container'>
-            <h1>Cyusa</h1>
-          </div>
+            <div className='container'>
+              employees
+            </div>
         )}
       </div>
     </div>
@@ -136,11 +295,10 @@ const CompanyList = ({ onSelectCompany, onAddNewCompany }) => {
 export default CompanyList;
 
 
-
-
 // CompanyForm.js
 import React, { useState } from 'react';
 import axios from 'axios';
+import '../assets/style/companyForm.css'
 
 const CompanyForm = () => {
   const [name, setName] = useState('');
@@ -157,7 +315,7 @@ const CompanyForm = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className='company-form'>
       <input
         type="text"
         value={name}
@@ -165,107 +323,18 @@ const CompanyForm = () => {
         placeholder="Company Name"
         required
       />
-      <button type="submit">Create Company</button>
+      <button style={{background: '#870000'}} type="submit">Create Company</button>
     </form>
   );
 };
 
 export default CompanyForm;
 
-
-// AddEmployeeForm.js
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const AddEmployeeForm = ({ companyId, companies, onAddEmployee }) => {
-  const [name, setName] = useState('');
-  const [employeeId, setEmployeeId] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const [selectedCompanyId, setSelectedCompanyId] = useState(companyId || '');
-  const [isIndividual, setIsIndividual] = useState(false);
-
-  useEffect(() => {
-    if (companyId) {
-      setSelectedCompanyId(companyId);
-    }
-  }, [companyId]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await axios.post('http://localhost:5000/api/companies/add-employee', {
-        name,
-        employeeId,
-        companyName,
-        companyId: isIndividual ? null : selectedCompanyId,
-        isIndividual
-      });
-      console.log('Employee added:', response.data);
-      setName('');
-      setEmployeeId('');
-      setCompanyName('');
-      setIsIndividual(false);
-      onAddEmployee(response.data);
-    } catch (error) {
-      console.error('Error adding employee:', error.message);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Employee Name"
-        required
-      />
-      <input
-        type="text"
-        value={employeeId}
-        onChange={(e) => setEmployeeId(e.target.value)}
-        placeholder="Employee ID"
-        required
-      />
-      <input
-        type="text"
-        value={companyName}
-        onChange={(e) => setCompanyName(e.target.value)}
-        placeholder="Company"
-      />
-      <label>
-        <input
-          type="checkbox"
-          checked={isIndividual}
-          onChange={(e) => setIsIndividual(e.target.checked)}
-        />
-        Add as Individual
-      </label>
-      {!isIndividual && (
-        <select
-          value={selectedCompanyId}
-          onChange={(e) => setSelectedCompanyId(e.target.value)}
-          required
-        >
-          <option value="">Select Company</option>
-          {companies.map((company) => (
-            <option key={company._id} value={company._id}>
-              {company.name}
-            </option>
-          ))}
-        </select>
-      )}
-      <button type="submit">Add Employee</button>
-    </form>
-  );
-};
-
-export default AddEmployeeForm;
-
 // CompanyEmployees.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import '../assets/style/companyEmployee.css';
 
 const CompanyEmployees = ({ companyId }) => {
   const [employees, setEmployees] = useState([]);
@@ -328,41 +397,42 @@ const CompanyEmployees = ({ companyId }) => {
   };
 
   return (
-    <div>
-      <h2>Employees of Company {companyId}</h2>
-      <ul>
-        {employees.map((employee) => (
-          <li key={employee._id}>
-            <label>
-              <input
-                type="checkbox"
-                checked={tickStatus[employee._id] || false}
-                onChange={() => handleTick(employee._id)}
-              />
-              {employee.name}
-            </label>
-            {tickStatus[employee._id] && (
-              <div>
-                <button onClick={() => handleFoodChange(employee._id, '')}>
-                  Add Food Taken
-                </button>
-                {foodInputs[employee._id] !== undefined && (
-                  <div>
+    <div className="container">
+      <h2>Clients</h2>
+      {employees.length > 0 ? (
+        <>
+          <ul className="employee-list">
+            {employees.map((employee) => (
+              <li key={employee._id} className="employee-item">
+                <label className="checkbox-container">
+                  <input
+                    type="checkbox"
+                    checked={tickStatus[employee._id] || false}
+                    onChange={() => handleTick(employee._id)}
+                  />
+                  <span className="checkmark"></span>
+                  {employee.name}
+                </label>
+                {tickStatus[employee._id] && (
+                  <div className="food-inputs">
                     <input
                       type="text"
                       value={foodInputs[employee._id] || ''}
                       onChange={(e) => handleFoodChange(employee._id, e.target.value)}
-                      placeholder="Food Taken"
+                      placeholder="Food Taken?"
+                      className="food-input"
                     />
-                    <button onClick={() => handleUpdateFood(employee._id)}>Update Food</button>
+                    <button className="update-food-btn" onClick={() => handleUpdateFood(employee._id)}>Update</button>
                   </div>
                 )}
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
-      <button onClick={handleSubmit}>Submit Ticked Employees</button>
+              </li>
+            ))}
+          </ul>
+          <button className="submit-btn" onClick={handleSubmit}>Submit Ticked Employees</button>
+        </>
+      ) : (
+        <p>No employees</p>
+      )}
     </div>
   );
 };
@@ -370,48 +440,132 @@ const CompanyEmployees = ({ companyId }) => {
 export default CompanyEmployees;
 
 
-// index.js
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import '../assets/style/companyForm.css'
+
+const AddEmployeeForm = ({ companyId, companies = [], onAddEmployee }) => {
+  const [name, setName] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [selectedCompanyId, setSelectedCompanyId] = useState(companyId || '');
+  const [isIndividual, setIsIndividual] = useState(false);
+
+  useEffect(() => {
+    if (companyId) {
+      setSelectedCompanyId(companyId);
+    }
+  }, [companyId]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post('http://localhost:5000/api/companies/add-employee', {
+        name,
+        employeeId,
+        companyId: isIndividual ? null : selectedCompanyId,
+        isIndividual
+      });
+      console.log('Employee added:', response.data);
+      setName('');
+      setEmployeeId('');
+      setIsIndividual(false);
+      onAddEmployee(response.data);
+    } catch (error) {
+      console.error('Error adding employee:', error.message);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className='company-form'>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Name"
+        required
+      />
+      <input
+        type="text"
+        value={employeeId}
+        onChange={(e) => setEmployeeId(e.target.value)}
+        placeholder="ID"
+        required
+      />
+      <label className='select-individual'>
+        As Individual?
+        <input
+          type="checkbox"
+          checked={isIndividual}
+          onChange={(e) => setIsIndividual(e.target.checked)}
+        />
+      </label>
+      {!isIndividual && (
+        <select
+          value={selectedCompanyId}
+          onChange={(e) => setSelectedCompanyId(e.target.value)}
+          required
+        >
+          <option value="">Select Company</option>
+          {companies.map((company) => (
+            <option key={company._id} value={company._id}>
+              {company.name}
+            </option>
+          ))}
+        </select>
+      )}
+      <button style={{background: '#01361D'}} type="submit">Add Employee</button>
+    </form>
+  );
+};
+
+export default AddEmployeeForm;
+
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { RouterProvider, createBrowserRouter } from 'react-router-dom';
-import RootLayout from './layouts/root-layout';
-import DashboardLayout from './layouts/dashboard-layout';
-import SignInPage from './routes/sign-in';
-import SignUpPage from './routes/sign-up';
-import Home from './pages/Home';
-import AddEmployeeForm from './components/AddEmployeeForm';
-import CompanyForm from './components/CompanyForm';
-import CompanyList from './components/CompanyList';
-import SubmittedEmployees from './components/SubmittedEmployees';
-import AddBetweenForms from './components/AddBetweenForms.js';
-import CompanyEmployees from './components/CompanyEmployees';
+import { useLocation } from 'react-router-dom';
+import '../assets/style/submittedEmployees.css';
 
-const router = createBrowserRouter([
-  {
-    element: <RootLayout />,
-    children: [
-      { path: "/", element: <Home /> },
-      { path: "/sign-in", element: <SignInPage /> },
-      { path: "/sign-up", element: <SignUpPage /> }, 
-      {
-        element: <DashboardLayout />,
-        children: [
-          { path: "/add-employee", element: <AddEmployeeForm /> },
-          { path: "/company-form", element: <CompanyForm /> },
-          { path: "/company-list", element: <CompanyList /> },
-          { path: "/submitted-employees", element: <SubmittedEmployees /> },
-          { path: "/addBetween", element: <AddBetweenForms /> },
-          { path: "/company/:companyId/employees", element: <CompanyEmployees /> }
-        ]
-      }
-    ]
-  }
-]);
+const SubmittedEmployees = () => {
+  const location = useLocation();
+  const { data } = location.state || { data: [] };
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <RouterProvider router={router} />
-  </React.StrictMode>
-);
+  return (
+    <div className="container">
+      <h2>Submitted Employees</h2>
+      {data.length > 0 ? (
+        <table className="employee-table">
+          <thead>
+            <tr>
+              <th style={{color: '#FFFCF8'}}>Name</th>
+              <th style={{color: '#FFFCF8'}}>Employee ID</th>
+              <th style={{color: '#FFFCF8'}}>Company</th>
+              <th style={{color: '#FFFCF8'}}>Meal Status</th>
+              <th style={{color: '#FFFCF8'}}>Food Taken</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((employee) => (
+              <tr key={employee._id} className={employee.changedMeal ? 'changed-meal' : ''}>
+                <td>{employee.name}</td>
+                <td>{employee.employeeId}</td>
+                <td>{employee.companyName}</td>
+                <td>
+                  {employee.changedMeal ? (
+                    <button className="meal-button" onClick={() => alert(`Meal taken: ${employee.foodTaken}`)}>Changed Meal</button>
+                  ) : (
+                    'Same Meal'
+                  )}
+                </td>
+                <td>{employee.foodTaken}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p>No employees submitted</p>
+      )}
+    </div>
+  );
+};
 
+export default SubmittedEmployees;
 
