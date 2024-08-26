@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/companies', companyRoutes);
-app.use('/api/individuals', individualRoutes); // Add this line
+app.use('/api/individuals', individualRoutes);
 app.use('/api/reports', reportRoutes);
 
 const server = http.createServer(app);
