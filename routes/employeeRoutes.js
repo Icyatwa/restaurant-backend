@@ -23,4 +23,22 @@ router.put('/:employeeId/update-food', async (req, res) => {
   }
 });
 
+router.get('/reports/ticked-company-employees', async (req, res) => {
+  try {
+    const tickedCompanyEmployees = await Employee.find({ company: { $ne: null }, ticked: true }).populate('company');
+
+    const result = tickedCompanyEmployees.map(employee => ({
+      _id: employee._id,
+      name: employee.name,
+      employeeId: employee.employeeId,
+      companyName: employee.company.name,
+      foodTaken: employee.foodTaken
+    }));
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

@@ -1,4 +1,4 @@
-// models/Individual.js
+// individual.js
 const mongoose = require('mongoose');
 
 const individualSchema = new mongoose.Schema({

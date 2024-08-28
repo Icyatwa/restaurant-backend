@@ -7,7 +7,8 @@ const employeeSchema = new Schema({
   employeeId: { type: String, required: true, unique: true },
   company: { type: Schema.Types.ObjectId, ref: 'Company', default: null },
   isIndividual: { type: Boolean, default: false },
-  foodTaken: { type: String, default: '' }
+  foodTaken: { type: String, default: '' },
+  ticked: { type: Boolean, default: false },
 });
 
 module.exports = mongoose.model('Employee', employeeSchema);

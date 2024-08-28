@@ -3,6 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const Employee = require('../models/Employee');
+const TickedIndividual = require('../models/TickedIndividual');
 
 // Route to add an individual
 router.post('/add', async (req, res) => {
@@ -55,6 +56,22 @@ router.post('/update-food', async (req, res) => {
   }
 });
 
+// router.post('/:id/food', async (req, res) => {
+//   try {
+//     const { foodTaken, ticked } = req.body;
+//     const individual = await Employee.findById(req.params.id);
+//     if (!individual || !individual.isIndividual) {
+//       return res.status(404).json({ error: 'Individual not found' });
+//     }
+//     individual.foodTaken = foodTaken;
+//     individual.ticked = ticked;
+//     await individual.save();
+//     res.status(200).json(individual);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// });
+
 router.post('/:id/food', async (req, res) => {
   try {
     const { foodTaken, ticked } = req.body;
@@ -62,9 +79,28 @@ router.post('/:id/food', async (req, res) => {
     if (!individual || !individual.isIndividual) {
       return res.status(404).json({ error: 'Individual not found' });
     }
+
     individual.foodTaken = foodTaken;
     individual.ticked = ticked;
     await individual.save();
+
+    if (ticked) {
+      const existingTicked = await TickedIndividual.findOne({ individualId: req.params.id });
+      if (existingTicked) {
+        existingTicked.foodTaken = foodTaken;
+        existingTicked.updatedAt = Date.now();
+        await existingTicked.save();
+      } else {
+        const newTicked = new TickedIndividual({
+          name: individual.name,
+          individualId: individual._id,
+          foodTaken: foodTaken,
+          ticked: true,
+        });
+        await newTicked.save();
+      }
+    }
+
     res.status(200).json(individual);
   } catch (error) {
     res.status(500).json({ error: error.message });
