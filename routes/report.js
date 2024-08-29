@@ -34,14 +34,23 @@ const Employee = require('../models/Employee');
 const TickedIndividual = require('../models/TickedIndividual');
 
 // Route to get ticked records
-router.get('/ticked-records', async (req, res) => {
+router.post('/ticked-records', async (req, res) => {
   try {
-    const tickedRecords = await TickedRecord.find().populate('company');
-    res.json(tickedRecords);
+    const individualRecordsData = req.body.tickedRecords;
+    const userId = req.body.userId; // Get userId from the request body
+    
+    const recordsToSave = individualRecordsData.map(record => ({
+      ...record,
+      userId  // Add userId to each record
+    }));
+
+    const savedRecords = await TickedRecord.insertMany(recordsToSave);
+    res.status(201).json(savedRecords);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching ticked records', error });
+    res.status(500).json({ message: 'Error saving ticked records', error });
   }
 });
+
 
 // Route to save ticked records
 router.post('/ticked-records', async (req, res) => {
