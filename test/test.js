@@ -1,177 +1,176 @@
-// Company.js
+
+// TickedIndividual.js
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-const companySchema = new Schema({
+const tickedIndividualSchema = new Schema({
   name: { type: String, required: true },
-  employees: [{ type: Schema.Types.ObjectId, ref: 'Employee' }],
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true } // Add this line
+  individualId: { type: Schema.Types.ObjectId, ref: 'Employee', required: true },
+  foodTaken: { type: String, default: '' },
+  ticked: { type: Boolean, default: true },
+  userId: { type: String, required: true }, // Add userId to schema
+  updatedAt: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model('Company', companySchema);
+module.exports = mongoose.model('TickedIndividual', tickedIndividualSchema);
 
-// companyRoutes
+// individualRoutes.js
 const express = require('express');
 const router = express.Router();
-const Company = require('../models/Company');
 const Employee = require('../models/Employee');
+const TickedIndividual = require('../models/TickedIndividual');
 
-router.post('/create', async (req, res) => {
-    try {
-        const { name, userId } = req.body;
-
-        // Ensure userId and name are provided
-        if (!name || !userId) {
-            return res.status(400).json({ error: 'Company name and userId are required.' });
-        }
-
-        // Create the new company
-        const newCompany = new Company({ name, userId });
-        await newCompany.save();
-
-        res.status(201).json(newCompany);
-    } catch (error) {
-        console.error('Error creating company:', error); // Log the full error
-        res.status(500).json({ error: 'Failed to create company. Please try again later.' });
-    }
+// Route to add an individual
+router.post('/add', async (req, res) => {
+  try {
+    const { name, employeeId, userId } = req.body;
+    const newIndividual = new Employee({ name, employeeId, userId, isIndividual: true });
+    await newIndividual.save();
+    res.status(201).json(newIndividual);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-router.post('/add-employee', async (req, res) => {
-    try {
-        const { name, employeeId, companyId, isIndividual, userId } = req.body; // Ensure userId is passed in the request
-        let company = null;
-
-        if (companyId) {
-            company = await Company.findById(companyId);
-            if (!company) {
-                return res.status(404).json({ error: 'Company not found' });
-            }
-        }
-
-        const newEmployee = new Employee({
-            name,
-            employeeId,
-            company: company ? company._id : null,
-            isIndividual,
-            userId // Add userId here
-        });
-
-        await newEmployee.save();
-
-        if (company) {
-            company.employees.push(newEmployee._id);
-            await company.save();
-        }
-
-        res.status(201).json(newEmployee);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
+// Route to get all individuals for a specific user
 router.get('/', async (req, res) => {
-    try {
-        const { userId } = req.query; // Assume userId is passed as a query parameter
-        const companies = await Company.find({ userId });
-        res.status(200).json(companies);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  try {
+    const { userId } = req.query; // Get userId from query parameters
+    const individuals = await Employee.find({ isIndividual: true, userId });
+    res.status(200).json(individuals);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-router.get('/:companyId/employees', async (req, res) => {
-    try {
-        const { companyId } = req.params;
-        const { userId } = req.query; // Assume userId is passed as a query parameter
-        const employees = await Employee.find({ company: companyId, userId });
-        res.status(200).json(employees);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+// Route to get an individual by ID for a specific user
+router.get('/:id', async (req, res) => {
+  try {
+    const { userId } = req.query; // Get userId from query parameters
+    const individual = await Employee.findOne({ _id: req.params.id, userId, isIndividual: true });
+    if (!individual) {
+      return res.status(404).json({ error: 'Individual not found' });
     }
+    res.status(200).json(individual);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-router.post('/verify-employee', async (req, res) => {
-    try {
-        const { employeeId, userId } = req.body;
-        const employee = await Employee.findOne({ employeeId, userId }).populate('company');
-
-        if (!employee) {
-            return res.status(404).json({ error: 'Employee not found' });
-        }
-
-        res.status(200).json(employee);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
+// Route to update food taken by an individual for a specific user
 router.post('/update-food', async (req, res) => {
-    try {
-        const { employeeId, foodTaken, userId } = req.body;
-        const employee = await Employee.findOne({ employeeId, userId });
-
-        if (!employee) {
-            return res.status(404).json({ error: 'Employee not found' });
-        }
-
-        employee.foodTaken = foodTaken;
-        await employee.save();
-
-        res.status(200).json(employee);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+  try {
+    const { individualId, foodTaken, userId } = req.body;
+    const individual = await Employee.findOne({ _id: individualId, userId });
+    if (!individual) {
+      return res.status(404).json({ error: 'Individual not found' });
     }
+    individual.foodTaken = foodTaken;
+    await individual.save();
+    res.status(200).json(individual);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
+// Route to update food taken and tick an individual for a specific user
+router.post('/:id/food', async (req, res) => {
+  try {
+    const { foodTaken, ticked, userId } = req.body;
+    const individual = await Employee.findOne({ _id: req.params.id, userId, isIndividual: true });
+    if (!individual) {
+      return res.status(404).json({ error: 'Individual not found' });
+    }
+
+    individual.foodTaken = foodTaken;
+    individual.ticked = ticked;
+    await individual.save();
+
+    if (ticked) {
+      const existingTicked = await TickedIndividual.findOne({ individualId: req.params.id });
+      if (existingTicked) {
+        existingTicked.foodTaken = foodTaken;
+        existingTicked.updatedAt = Date.now();
+        await existingTicked.save();
+      } else {
+        const newTicked = new TickedIndividual({
+          name: individual.name,
+          individualId: individual._id,
+          foodTaken: foodTaken,
+          ticked: true,
+          userId: individual.userId // Ensure userId is saved in the ticked record as well
+        });
+        await newTicked.save();
+      }
+    }
+
+    res.status(200).json(individual);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 module.exports = router;
 
-// CompanyForm.js
-import React, { useState } from 'react';
-import axios from 'axios';
-import { useClerk } from "@clerk/clerk-react";
-import '../assets/style/companyForm.css';
+// // report.js
+// const express = require('express');
+// const router = express.Router();
+// const Employee = require('../models/Employee');
 
-const CompanyForm = () => {
-  const { user } = useClerk();
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
+// Route to generate a report for ticked employees and individuals
+// router.get('/ticked-all', async (req, res) => {
+//   try {
+//     // Find all employees who have taken their meals (ticked)
+//     const tickedEmployees = await Employee.find({ foodTaken: { $ne: '' } });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+//     // Separate company employees from individuals
+//     const companyEmployees = tickedEmployees.filter(emp => !emp.isIndividual);
+//     const individuals = tickedEmployees.filter(emp => emp.isIndividual);
 
-    try {
-      const userId = user.id;
-      const response = await axios.post('http://localhost:5000/api/companies/create', { name, userId });
-      console.log('Company created:', response.data);
-      setName('');
-      window.location.reload(); // Auto-refresh page after submission
-    } catch (error) {
-      setError('Failed to create company. Please try again.');
-      console.error('Error creating company:', error.response?.data?.error || error.message);
-    }
-  };
+//     res.json({
+//       companyEmployees,
+//       individuals
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: 'Error generating report', error });
+//   }
+// });
 
-  return (
-    <div className="form-container">
-      <form onSubmit={handleSubmit} className="form">
-        {error && <div className="form-error">{error}</div>}
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Enter Company Name"
-          required
-        />
-        <button type="submit">Create Company</button>
-      </form>
-    </div>
-  );
-};
 
-export default CompanyForm;
 
-Server is running on port 5000
-Received data: CoCa user_2lLlYZkdZwVSQ9XyJayiSWMylw0
-Error creating company: Company validation failed: userId: Cast to ObjectId failed for value "user_2lLlYZkdZwVSQ9XyJayiSWMylw0" (type string) at path "userId" because of "BSONError"
+// module.exports = router;
+
+// report.js 
+const express = require('express');
+const router = express.Router();
+const Employee = require('../models/Employee');
+const TickedIndividual = require('../models/TickedIndividual');
+
+router.post('/ticked-individuals', async (req, res) => {
+  try {
+    const individualRecordsData = req.body.tickedRecords;
+    const userId = req.body.userId;
+    
+    const recordsToSave = individualRecordsData.map(record => ({
+      ...record,
+      userId
+    }));
+
+    const savedRecords = await TickedIndividual.insertMany(recordsToSave);
+    res.status(201).json(savedRecords);
+  } catch (error) {
+    res.status(500).json({ message: 'Error saving ticked records', error });
+  }
+});
+
+router.get('/ticked-individuals', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const tickedRecords = await TickedIndividual.find({ userId }).populate('individualId');
+    res.status(200).json(tickedRecords);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching ticked records', error });
+  }
+});
+
+module.exports = router;

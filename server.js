@@ -7,6 +7,7 @@ const socketIo = require('socket.io');
 const companyRoutes = require('./routes/companyRoutes');
 const individualRoutes = require('./routes/individualRoutes');
 const reportRoutes = require('./routes/report');
+const tickedIndividualsRoutes = require('./routes/tickedIndividualRoutes.js');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use('/api/companies', companyRoutes);
 app.use('/api/individuals', individualRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/ticked-individuals', tickedIndividualsRoutes);
 
 const server = http.createServer(app);
 const io = socketIo(server);

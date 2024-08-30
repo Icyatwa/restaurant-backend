@@ -34,14 +34,30 @@ const Employee = require('../models/Employee');
 const TickedIndividual = require('../models/TickedIndividual');
 
 // Route to get ticked records
+// router.post('/ticked-records', async (req, res) => {
+//   try {
+//     const individualRecordsData = req.body.tickedRecords;
+//     const userId = req.body.userId; // Get userId from the request body
+    
+//     const recordsToSave = individualRecordsData.map(record => ({
+//       ...record,
+//       userId  // Add userId to each record
+//     }));
+
+//     const savedRecords = await TickedRecord.insertMany(recordsToSave);
+//     res.status(201).json(savedRecords);
+//   } catch (error) {
+//     res.status(500).json({ message: 'Error saving ticked records', error });
+//   }
+// });
 router.post('/ticked-records', async (req, res) => {
   try {
     const individualRecordsData = req.body.tickedRecords;
-    const userId = req.body.userId; // Get userId from the request body
+    const userId = req.body.userId;
     
     const recordsToSave = individualRecordsData.map(record => ({
       ...record,
-      userId  // Add userId to each record
+      userId
     }));
 
     const savedRecords = await TickedRecord.insertMany(recordsToSave);
@@ -51,22 +67,21 @@ router.post('/ticked-records', async (req, res) => {
   }
 });
 
-
-// Route to save ticked records
-router.post('/ticked-records', async (req, res) => {
+router.get('/ticked-records', async (req, res) => {
   try {
-    const individualRecordsData = req.body.tickedRecords;
-    const savedRecords = await TickedRecord.insertMany(individualRecordsData);
-    res.status(201).json(savedRecords);
+    const { userId } = req.query;
+    const tickedRecords = await TickedRecord.find({ userId }).populate('company');
+    res.status(200).json(tickedRecords);
   } catch (error) {
-    res.status(500).json({ message: 'Error saving ticked records', error });
+    res.status(500).json({ message: 'Error fetching ticked records', error });
   }
 });
 
 
 router.get('/ticked-individuals', async (req, res) => {
   try {
-    const tickedIndividuals = await TickedIndividual.find().populate('individualId');
+    const { userId } = req.query; // Get userId from query parameters
+    const tickedIndividuals = await TickedIndividual.find({ userId }).populate('individualId');
     res.status(200).json(tickedIndividuals);
   } catch (error) {
     res.status(500).json({ error: error.message });

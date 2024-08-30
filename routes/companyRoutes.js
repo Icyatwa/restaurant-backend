@@ -185,7 +185,7 @@ router.get('/', async (req, res) => {
         if (!userId) {
             return res.status(400).json({ error: 'UserId is required.' });
         }
-        
+
         const companies = await Company.find({ userId });
         res.status(200).json(companies);
     } catch (error) {

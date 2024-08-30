@@ -14,6 +14,7 @@
 // module.exports = mongoose.model('Employee', employeeSchema);
 
 
+// Employee.js
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
