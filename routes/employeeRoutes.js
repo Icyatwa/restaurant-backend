@@ -3,7 +3,6 @@ const express = require('express');
 const router = express.Router();
 const Employee = require('../models/Employee');
 
-// Update food taken by an employee
 router.put('/:employeeId/update-food', async (req, res) => {
   try {
     const { employeeId } = req.params;

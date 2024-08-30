@@ -1,8 +1,8 @@
+// tickedIndividualRoutes.js
 const express = require('express');
 const router = express.Router();
 const TickedIndividual = require('../models/TickedIndividual');
 
-// Route to add a ticked individual for a specific user
 router.post('/add', async (req, res) => {
   try {
     const { name, individualId, foodTaken, userId } = req.body;
@@ -19,10 +19,9 @@ router.post('/add', async (req, res) => {
   }
 });
 
-// Route to get all ticked individuals for a specific user
 router.get('/', async (req, res) => {
   try {
-    const { userId } = req.query; // Get userId from query parameters
+    const { userId } = req.query;
     const tickedIndividuals = await TickedIndividual.find({ userId });
     res.status(200).json(tickedIndividuals);
   } catch (error) {
@@ -30,10 +29,9 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Route to get a specific ticked individual by ID for a specific user
 router.get('/:id', async (req, res) => {
   try {
-    const { userId } = req.query; // Get userId from query parameters
+    const { userId } = req.query;
     const tickedIndividual = await TickedIndividual.findOne({ _id: req.params.id, userId });
     if (!tickedIndividual) {
       return res.status(404).json({ error: 'Ticked individual not found' });
@@ -44,7 +42,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Route to update a ticked individual for a specific user
 router.put('/:id', async (req, res) => {
   try {
     const { foodTaken, ticked, userId } = req.body;
@@ -64,7 +61,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Route to delete a ticked individual for a specific user
 router.delete('/:id', async (req, res) => {
   try {
     const { userId } = req.query;
